@@ -64,7 +64,7 @@ describe("POST /companies", function () {
     expect(resp.statusCode).toEqual(400);
   });
 
-  test("anuthorized to create new company", async function () {
+  test("unauthorized to create new company", async function () {
     const resp = await request(app)
       .post("/companies")
       .send({
