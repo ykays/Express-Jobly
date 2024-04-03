@@ -117,6 +117,7 @@ describe("findAll", function () {
         lastName: "U1L",
         email: "u1@email.com",
         isAdmin: false,
+        jobsApplied: [1, 2],
       },
       {
         username: "u2",
@@ -124,6 +125,7 @@ describe("findAll", function () {
         lastName: "U2L",
         email: "u2@email.com",
         isAdmin: false,
+        jobsApplied: [],
       },
     ]);
   });
@@ -140,6 +142,19 @@ describe("get", function () {
       lastName: "U1L",
       email: "u1@email.com",
       isAdmin: false,
+      jobsApplied: [1, 2],
+    });
+  });
+
+  test("works w/o jobs", async function () {
+    let user = await User.get("u2");
+    expect(user).toEqual({
+      username: "u2",
+      firstName: "U2F",
+      lastName: "U2L",
+      email: "u2@email.com",
+      isAdmin: false,
+      jobsApplied: [null],
     });
   });
 
@@ -214,8 +229,7 @@ describe("update", function () {
 describe("remove", function () {
   test("works", async function () {
     await User.remove("u1");
-    const res = await db.query(
-        "SELECT * FROM users WHERE username='u1'");
+    const res = await db.query("SELECT * FROM users WHERE username='u1'");
     expect(res.rows.length).toEqual(0);
   });
 
@@ -226,5 +240,17 @@ describe("remove", function () {
     } catch (err) {
       expect(err instanceof NotFoundError).toBeTruthy();
     }
+  });
+});
+
+/************************************** apply for JOB */
+
+describe("applyForJob", function () {
+  test("works", async function () {
+    const results = await User.applyForJob("u2", "1");
+    expect(results).toEqual({
+      username: "u2",
+      job_id: 1,
+    });
   });
 });

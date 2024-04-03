@@ -5,6 +5,7 @@ const request = require("supertest");
 const db = require("../db.js");
 const app = require("../app");
 const User = require("../models/user");
+const Job = require("../models/job");
 
 const {
   commonBeforeAll,
@@ -129,6 +130,15 @@ describe("POST /users", function () {
 
 describe("GET /users", function () {
   test("works for users", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+
+    const jobApplied = await User.applyForJob("u1", jobId);
     const resp = await request(app)
       .get("/users")
       .set("authorization", `Bearer ${u1Token}`);
@@ -140,6 +150,7 @@ describe("GET /users", function () {
           lastName: "U1L",
           email: "user1@user.com",
           isAdmin: true,
+          jobsApplied: [jobId],
         },
         {
           username: "u2",
@@ -147,6 +158,7 @@ describe("GET /users", function () {
           lastName: "U2L",
           email: "user2@user.com",
           isAdmin: false,
+          jobsApplied: [],
         },
         {
           username: "u3",
@@ -154,6 +166,7 @@ describe("GET /users", function () {
           lastName: "U3L",
           email: "user3@user.com",
           isAdmin: false,
+          jobsApplied: [],
         },
       ],
     });
@@ -187,6 +200,15 @@ describe("GET /users", function () {
 
 describe("GET /users/:username", function () {
   test("works for users", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+
+    const jobApplied = await User.applyForJob("u1", jobId);
     const resp = await request(app)
       .get(`/users/u1`)
       .set("authorization", `Bearer ${u1Token}`);
@@ -197,11 +219,21 @@ describe("GET /users/:username", function () {
         lastName: "U1L",
         email: "user1@user.com",
         isAdmin: true,
+        jobsApplied: [jobId],
       },
     });
   });
 
   test("get other user by admin", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+
+    const jobApplied = await User.applyForJob("u2", jobId);
     const resp = await request(app)
       .get(`/users/u2`)
       .set("authorization", `Bearer ${u1Token}`);
@@ -212,6 +244,7 @@ describe("GET /users/:username", function () {
         lastName: "U2L",
         email: "user2@user.com",
         isAdmin: false,
+        jobsApplied: [jobId],
       },
     });
   });
@@ -227,6 +260,7 @@ describe("GET /users/:username", function () {
         lastName: "U2L",
         email: "user2@user.com",
         isAdmin: false,
+        jobsApplied: [null],
       },
     });
   });
@@ -383,5 +417,51 @@ describe("DELETE /users/:username", function () {
       .delete(`/users/nope`)
       .set("authorization", `Bearer ${u1Token}`);
     expect(resp.statusCode).toEqual(404);
+  });
+});
+
+/************************************** APPLY for JOB /users/:username/jobs/:id */
+
+describe("POST /users/:username/jobs/:id", function () {
+  test("works for users", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({ applied: jobId });
+  });
+
+  test("anauthorized", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+    const resp = await request(app)
+      .post(`/users/u1/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u2Token}`);
+    expect(resp.statusCode).toEqual(401);
+  });
+
+  test("posted by admin for other user", async function () {
+    const job = await Job.create({
+      title: "JobTitle",
+      salary: 50000,
+      equity: 0,
+      companyHandle: "c1",
+    });
+    const jobId = job.id;
+    const resp = await request(app)
+      .post(`/users/u2/jobs/${jobId}`)
+      .set("authorization", `Bearer ${u1Token}`);
+    expect(resp.body).toEqual({ applied: jobId });
   });
 });

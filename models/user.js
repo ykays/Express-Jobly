@@ -95,23 +95,52 @@ class User {
     return user;
   }
 
-  /** Find all users.
+  /** Find all users & the jobs they applied to
+   * If one user applied for more than one job, all job ids should be in an array of that user
+   * User details should not repeat
    *
    * Returns [{ username, first_name, last_name, email, is_admin }, ...]
    **/
 
   static async findAll() {
-    const result = await db.query(
-      `SELECT username,
-                  first_name AS "firstName",
-                  last_name AS "lastName",
-                  email,
-                  is_admin AS "isAdmin"
-           FROM users
-           ORDER BY username`
+    const results = await db.query(
+      `SELECT u.username,
+                  u.first_name AS "firstName",
+                  u.last_name AS "lastName",
+                  u.email,
+                  u.is_admin AS "isAdmin"
+           FROM users u 
+           ORDER BY u.username`
     );
 
-    return result.rows;
+    const userJobs = await db.query(
+      `SELECT 
+      a.username,
+      a.job_id AS "jobId"
+      FROM applications a LEFT JOIN users u ON a.username = u.username
+      ORDER BY a.username`
+    );
+
+    const user = [];
+    const jobs = userJobs.rows;
+    for (let result of results.rows) {
+      let userDetails = {};
+      userDetails["username"] = result.username;
+      userDetails["firstName"] = result.firstName;
+      userDetails["lastName"] = result.lastName;
+      userDetails["email"] = result.email;
+      userDetails["isAdmin"] = result.isAdmin;
+      userDetails["jobsApplied"] = [];
+      for (let job of jobs) {
+        if (job.username === result.username) {
+          userDetails["jobsApplied"].push(job.jobId);
+        }
+      }
+
+      user.push(userDetails);
+    }
+
+    return user;
   }
 
   /** Given a username, return data about user.
@@ -122,23 +151,27 @@ class User {
    * Throws NotFoundError if user not found.
    **/
 
-  static async get(username) {
+  static async get(usernameFind) {
     const userRes = await db.query(
-      `SELECT username,
-                  first_name AS "firstName",
-                  last_name AS "lastName",
-                  email,
-                  is_admin AS "isAdmin"
-           FROM users
-           WHERE username = $1`,
-      [username]
+      `SELECT u.username,
+      u.first_name AS "firstName",
+      u.last_name AS "lastName",
+      u.email,
+      u.is_admin AS "isAdmin",
+      a.job_id AS "jobId"
+      FROM users u LEFT JOIN applications a ON u.username = a.username
+      WHERE u.username = $1`,
+      [usernameFind]
     );
 
-    const user = userRes.rows[0];
+    if (userRes.rows.length === 0) {
+      throw new NotFoundError(`No user: ${usernameFind}`);
+    }
 
-    if (!user) throw new NotFoundError(`No user: ${username}`);
+    const { username, firstName, lastName, email, isAdmin } = userRes.rows[0];
+    const jobsApplied = userRes.rows.map((r) => r.jobId);
 
-    return user;
+    return { username, firstName, lastName, email, isAdmin, jobsApplied };
   }
 
   /** Update user data with `data`.
@@ -201,6 +234,16 @@ class User {
     const user = result.rows[0];
 
     if (!user) throw new NotFoundError(`No user: ${username}`);
+  }
+
+  static async applyForJob(username, jobId) {
+    const results = await db.query(
+      `INSERT INTO applications (username, job_id)
+      VALUES ($1, $2) RETURNING username, job_id`,
+      [username, jobId]
+    );
+
+    return results.rows[0];
   }
 }
 
